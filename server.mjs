@@ -1,39 +1,48 @@
 import express from 'express';
 import morgan from 'morgan';
 import cors from "cors";
+import mongoose from 'mongoose';
+
+mongoose.connect('mongodb+srv://Zaid:Zaid1sheikh@cluster0.irbv7.mongodb.net/myFirstDatabase?retryWrites=true&w=majority');
+const User = mongoose.model('User', {
+  name: String,
+  email: String,
+  address: String
+});
+
 const app = express()
-
-
 const port = process.env.PORT || 3000
 
-
-
-let users = [];
 app.use(cors())
 app.use(express.json())
 app.use(morgan('short'))
 
 app.use((req, res, next) => {
-
   console.log("a request came", req.body);
   next()
 })
 
-app.use((req, res, next) => {
-  console.log("a request came", Date.now());
-  next()
-})
-
 app.get('/users', (req, res) => {
-  res.send(users)
+
+  User.find({}, (err, users) => {
+    if (!err) {
+      res.send(users)
+    } else {
+      res.status(500).send("error happened")
+    }
+  })
+
+
 })
 app.get('/user/:id', (req, res) => {
 
-  if (users[req.params.id]) {
-    res.send(users[req.params.id])
-  } else {
-    res.send("user not found");
-  }
+  User.findOne({ _id: req.params.id }, (err, user) => {
+    if (!err) {
+      res.send(user)
+    } else {
+      res.status(500).send("error happened")
+    }
+  })
 
 })
 app.post('/user', (req, res) => {
@@ -41,49 +50,48 @@ app.post('/user', (req, res) => {
   if (!req.body.name || !req.body.email || !req.body.address) {
     res.status(400).send("invalid data");
   } else {
-    users.push({
+    const newUser = new User({
       name: req.body.name,
       email: req.body.email,
       address: req.body.address
-    })
-
-    res.send("users created");
+    });
+    newUser.save().then(() => {
+      console.log('user created success')
+      res.send("users created");
+    });
   }
 })
 app.put('/user/:id', (req, res) => {
+  let updateObj = {}
 
-  if (users[req.params.id]) {
-
-    if (req.body.name) {
-      users[req.params.id].name = req.body.name
-    }
-    if (req.body.email) {
-      users[req.params.id].email = req.body.email
-    }
-    if (req.body.address) {
-      users[req.params.id].address = req.body.address
-    }
-
-    res.send(users[req.params.id])
-
-  } else {
-    res.send("user not found");
+  if (req.body.name) {
+    updateObj.name = req.body.name
+  }
+  if (req.body.email) {
+    updateObj.email = req.body.email
+  }
+  if (req.body.address) {
+    updateObj.address = req.body.address
   }
 
-
-
+  User.findByIdAndUpdate(req.params.id, updateObj, { new: true },
+    (err, data) => {
+      if (!err) {
+        res.send(data)
+      } else {
+        res.status(500).send("error happened")
+      }
+    })
 })
-
 app.delete('/user/:id', (req, res) => {
 
-  if (users[req.params.id]) {
-
-    users[req.params.id] = {};
-    res.send("user deleted");
-
-  } else {
-    res.send("user not found");
-  }
+  User.findByIdAndRemove(req.params.id, (err, data) => {
+    if (!err) {
+      res.send("user deleted")
+    } else {
+      res.status(500).send("error happened")
+    }
+  })
 })
 
 app.get('/home', (req, res) => {
@@ -96,3 +104,6 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`)
 })
+
+// deploy this server to heroku cloud
+// read: https://devcenter.heroku.com/articles/getting-started-with-nodejs
